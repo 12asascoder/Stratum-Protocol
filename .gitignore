@@ -90,3 +90,4 @@ checkpoints/
 # Logs
 logs/
 *.log
+frontend/node_modules/
