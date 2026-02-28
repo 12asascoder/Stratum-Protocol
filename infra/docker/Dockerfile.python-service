@@ -1,0 +1,48 @@
+# ============================================================
+# STRATUM PROTOCOL — Python Service Multi-Stage Dockerfile
+# Template: Used by all FastAPI microservices
+# ============================================================
+
+# ---- Builder stage ----
+FROM python:3.11-slim AS builder
+
+WORKDIR /build
+
+# Install build deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential gcc libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for layer caching
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt --target /build/packages
+
+# ---- Runtime stage ----
+FROM python:3.11-slim AS runtime
+
+WORKDIR /app
+
+# Security: non-root user
+RUN groupadd -r stratum && useradd -r -g stratum stratum
+
+# Runtime system deps only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy installed packages
+COPY --from=builder /build/packages /usr/local/lib/python3.11/site-packages/
+
+# Copy application code
+COPY --chown=stratum:stratum . .
+
+USER stratum
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:${PORT:-8000}/health || exit 1
+
+EXPOSE ${PORT:-8000}
+
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

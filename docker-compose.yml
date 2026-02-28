@@ -1,0 +1,284 @@
+version: '3.9'
+
+# STRATUM PROTOCOL — Application Microservices
+# Requires: docker-compose.infra.yml running first
+# Run: make dev
+
+name: stratum-services
+
+networks:
+  stratum-net:
+    external: true
+
+services:
+  # ---------------------------------------------------------------------------
+  # AUTH SERVICE
+  # ---------------------------------------------------------------------------
+  auth-service:
+    build:
+      context: ./services/auth-service
+      dockerfile: ../../infra/docker/Dockerfile.python-service
+    container_name: stratum-auth
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      PORT: 8000
+    networks:
+      - stratum-net
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ---------------------------------------------------------------------------
+  # DATA INGESTION SERVICE
+  # ---------------------------------------------------------------------------
+  data-ingestion-service:
+    build:
+      context: ./services/data-ingestion-service
+    container_name: stratum-ingestion
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    env_file: .env
+    environment:
+      PORT: 8001
+    networks:
+      - stratum-net
+    depends_on:
+      - auth-service
+
+  # ---------------------------------------------------------------------------
+  # KNOWLEDGE GRAPH SERVICE
+  # ---------------------------------------------------------------------------
+  knowledge-graph-service:
+    build:
+      context: ./services/knowledge-graph-service
+    container_name: stratum-graph
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+      - "50051:50051" # gRPC
+    env_file: .env
+    environment:
+      PORT: 8002
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # STATE ESTIMATION ENGINE
+  # ---------------------------------------------------------------------------
+  state-estimation-engine:
+    build:
+      context: ./services/state-estimation-engine
+    container_name: stratum-state
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+    env_file: .env
+    environment:
+      PORT: 8003
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # CASCADE FAILURE ENGINE
+  # ---------------------------------------------------------------------------
+  cascade-failure-engine:
+    build:
+      context: ./services/cascade-failure-engine
+    container_name: stratum-cascade
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    env_file: .env
+    environment:
+      PORT: 8004
+    networks:
+      - stratum-net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: amdgpu
+              count: 1
+              capabilities: [ gpu ]
+
+  # ---------------------------------------------------------------------------
+  # CITIZEN BEHAVIOR ENGINE
+  # ---------------------------------------------------------------------------
+  citizen-behavior-engine:
+    build:
+      context: ./services/citizen-behavior-engine
+    container_name: stratum-citizen
+    restart: unless-stopped
+    ports:
+      - "8005:8005"
+    env_file: .env
+    environment:
+      PORT: 8005
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # POLICY SIMULATION ENGINE
+  # ---------------------------------------------------------------------------
+  policy-simulation-engine:
+    build:
+      context: ./services/policy-simulation-engine
+    container_name: stratum-policy
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    env_file: .env
+    environment:
+      PORT: 8006
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # CAPITAL OPTIMIZATION ENGINE
+  # ---------------------------------------------------------------------------
+  capital-optimization-engine:
+    build:
+      context: ./services/capital-optimization-engine
+    container_name: stratum-capital
+    restart: unless-stopped
+    ports:
+      - "8007:8007"
+    env_file: .env
+    environment:
+      PORT: 8007
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # DECISION LEDGER SERVICE
+  # ---------------------------------------------------------------------------
+  decision-ledger-service:
+    build:
+      context: ./services/decision-ledger-service
+    container_name: stratum-ledger
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    env_file: .env
+    environment:
+      PORT: 8008
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # FEDERATED LEARNING SERVICE
+  # ---------------------------------------------------------------------------
+  federated-learning-service:
+    build:
+      context: ./services/federated-learning-service
+    container_name: stratum-federated
+    restart: unless-stopped
+    ports:
+      - "8009:8009"
+      - "8080:8080" # Flower gRPC server
+    env_file: .env
+    environment:
+      PORT: 8009
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # SOVEREIGN GOVERNANCE LAYER
+  # ---------------------------------------------------------------------------
+  sovereign-governance-layer:
+    build:
+      context: ./services/sovereign-governance-layer
+    container_name: stratum-governance
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    env_file: .env
+    environment:
+      PORT: 8010
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # CYBER DEFENSE ENGINE
+  # ---------------------------------------------------------------------------
+  cyber-defense-engine:
+    build:
+      context: ./services/cyber-defense-engine
+    container_name: stratum-cyber
+    restart: unless-stopped
+    ports:
+      - "8011:8011"
+    env_file: .env
+    environment:
+      PORT: 8011
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # ORCHESTRATION ENGINE
+  # ---------------------------------------------------------------------------
+  orchestration-engine:
+    build:
+      context: ./services/orchestration-engine
+    container_name: stratum-orchestration
+    restart: unless-stopped
+    ports:
+      - "8012:8012"
+    env_file: .env
+    environment:
+      PORT: 8012
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # URBAN EVOLUTION SIMULATOR
+  # ---------------------------------------------------------------------------
+  urban-evolution-simulator:
+    build:
+      context: ./services/urban-evolution-simulator
+    container_name: stratum-evolution
+    restart: unless-stopped
+    ports:
+      - "8013:8013"
+    env_file: .env
+    environment:
+      PORT: 8013
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # WEBSOCKET GATEWAY (Node.js)
+  # ---------------------------------------------------------------------------
+  websocket-gateway:
+    build:
+      context: ./services/websocket-gateway
+    container_name: stratum-ws
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    env_file: .env
+    environment:
+      WEBSOCKET_PORT: 9000
+    networks:
+      - stratum-net
+
+  # ---------------------------------------------------------------------------
+  # FRONTEND (production build served by nginx)
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_MAPBOX_ACCESS_TOKEN: ${VITE_MAPBOX_ACCESS_TOKEN}
+    container_name: stratum-frontend
+    restart: unless-stopped
+    ports:
+      - "3080:80"
+    networks:
+      - stratum-net

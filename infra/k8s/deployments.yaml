@@ -1,0 +1,293 @@
+---
+# STRATUM PROTOCOL — Kubernetes Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stratum-system
+  labels:
+    app.kubernetes.io/managed-by: helm
+    istio-injection: enabled  # Enable Istio mTLS service mesh
+---
+# KEDA ScaledObject — Decision Ledger (Kafka-driven autoscaling)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: decision-ledger-kafka-scaler
+  namespace: stratum-system
+spec:
+  scaleTargetRef:
+    name: stratum-decision-ledger
+  pollingInterval: 15
+  cooldownPeriod: 60
+  minReplicaCount: 2
+  maxReplicaCount: 20
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.stratum-system.svc.cluster.local:9092
+        consumerGroup: decision-ledger-group
+        topic: stratum.ledger.decisions
+        lagThreshold: "50"
+---
+# KEDA ScaledObject — Cascade Failure Engine (GPU-aware, inference load)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: cascade-failure-kafka-scaler
+  namespace: stratum-system
+spec:
+  scaleTargetRef:
+    name: stratum-cascade-failure
+  pollingInterval: 10
+  cooldownPeriod: 120
+  minReplicaCount: 1
+  maxReplicaCount: 8
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.stratum-system.svc.cluster.local:9092
+        consumerGroup: cascade-failure-group
+        topic: stratum.simulation.requests
+        lagThreshold: "10"
+---
+# KEDA ScaledObject — Data Ingestion (high throughput)
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: data-ingestion-kafka-scaler
+  namespace: stratum-system
+spec:
+  scaleTargetRef:
+    name: stratum-data-ingestion
+  pollingInterval: 5
+  cooldownPeriod: 30
+  minReplicaCount: 3
+  maxReplicaCount: 50
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.stratum-system.svc.cluster.local:9092
+        consumerGroup: ingestion-group
+        topic: stratum.raw.sensor-data
+        lagThreshold: "100"
+---
+# Deployment — Decision Ledger Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stratum-decision-ledger
+  namespace: stratum-system
+  labels:
+    app: stratum-decision-ledger
+    component: ledger
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stratum-decision-ledger
+  template:
+    metadata:
+      labels:
+        app: stratum-decision-ledger
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8008"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: stratum-backend
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: decision-ledger
+          image: ghcr.io/stratumprotocol/stratum-decision-ledger-service:latest
+          ports:
+            - containerPort: 8008
+              name: http
+          envFrom:
+            - configMapRef:
+                name: stratum-config
+            - secretRef:
+                name: stratum-secrets
+          env:
+            - name: PORT
+              value: "8008"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "2000m"
+              memory: "2Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8008
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8008
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+# Service — Decision Ledger
+apiVersion: v1
+kind: Service
+metadata:
+  name: stratum-decision-ledger
+  namespace: stratum-system
+  labels:
+    app: stratum-decision-ledger
+spec:
+  selector:
+    app: stratum-decision-ledger
+  ports:
+    - port: 8008
+      targetPort: 8008
+      name: http
+  type: ClusterIP
+---
+# Deployment — Knowledge Graph Service
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stratum-knowledge-graph
+  namespace: stratum-system
+  labels:
+    app: stratum-knowledge-graph
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: stratum-knowledge-graph
+  template:
+    metadata:
+      labels:
+        app: stratum-knowledge-graph
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8002"
+    spec:
+      containers:
+        - name: knowledge-graph
+          image: ghcr.io/stratumprotocol/stratum-knowledge-graph-service:latest
+          ports:
+            - containerPort: 8002
+              name: http
+            - containerPort: 50051
+              name: grpc
+          envFrom:
+            - configMapRef:
+                name: stratum-config
+            - secretRef:
+                name: stratum-secrets
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "3000m"
+              memory: "4Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8002
+            initialDelaySeconds: 40
+            periodSeconds: 15
+---
+# Deployment — Cascade Failure Engine (GPU)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stratum-cascade-failure
+  namespace: stratum-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: stratum-cascade-failure
+  template:
+    metadata:
+      labels:
+        app: stratum-cascade-failure
+    spec:
+      containers:
+        - name: cascade-failure
+          image: ghcr.io/stratumprotocol/stratum-cascade-failure-engine:latest
+          ports:
+            - containerPort: 8004
+          resources:
+            requests:
+              cpu: "2000m"
+              memory: "8Gi"
+            limits:
+              cpu: "8000m"
+              memory: "32Gi"
+              amd.com/gpu: "1"  # ROCm GPU request
+          env:
+            - name: ROCM_VISIBLE_DEVICES
+              value: "0"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8004
+            initialDelaySeconds: 60
+            periodSeconds: 30
+---
+# Ingress (NGINX + TLS)
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: stratum-ingress
+  namespace: stratum-system
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: ["stratum.yourdomain.com"]
+      secretName: stratum-tls
+  rules:
+    - host: stratum.yourdomain.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: stratum-frontend
+                port:
+                  number: 80
+          - path: /api/ledger
+            pathType: Prefix
+            backend:
+              service:
+                name: stratum-decision-ledger
+                port:
+                  number: 8008
+          - path: /api/graph
+            pathType: Prefix
+            backend:
+              service:
+                name: stratum-knowledge-graph
+                port:
+                  number: 8002
+          - path: /ws
+            pathType: Prefix
+            backend:
+              service:
+                name: stratum-ws-gateway
+                port:
+                  number: 9000

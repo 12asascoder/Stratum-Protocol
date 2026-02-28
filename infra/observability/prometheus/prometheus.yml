@@ -1,0 +1,130 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: stratum-production
+    region: us-east-1
+
+rule_files:
+  - "rules/stratum_alerts.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
+scrape_configs:
+  # =========================================================================
+  # STRATUM MICROSERVICES
+  # =========================================================================
+  - job_name: stratum-data-ingestion
+    static_configs:
+      - targets: ["data-ingestion-service:8001"]
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  - job_name: stratum-knowledge-graph
+    static_configs:
+      - targets: ["knowledge-graph-service:8002"]
+    metrics_path: /metrics
+
+  - job_name: stratum-state-estimation
+    static_configs:
+      - targets: ["state-estimation-engine:8003"]
+    metrics_path: /metrics
+
+  - job_name: stratum-cascade-failure
+    static_configs:
+      - targets: ["cascade-failure-engine:8004"]
+    metrics_path: /metrics
+
+  - job_name: stratum-citizen-behavior
+    static_configs:
+      - targets: ["citizen-behavior-engine:8005"]
+    metrics_path: /metrics
+
+  - job_name: stratum-policy-simulation
+    static_configs:
+      - targets: ["policy-simulation-engine:8006"]
+    metrics_path: /metrics
+
+  - job_name: stratum-capital-optimization
+    static_configs:
+      - targets: ["capital-optimization-engine:8007"]
+    metrics_path: /metrics
+
+  - job_name: stratum-decision-ledger
+    static_configs:
+      - targets: ["decision-ledger-service:8008"]
+    metrics_path: /metrics
+    scrape_interval: 5s  # Higher frequency for ledger service
+
+  - job_name: stratum-federated-learning
+    static_configs:
+      - targets: ["federated-learning-service:8009"]
+    metrics_path: /metrics
+
+  - job_name: stratum-governance
+    static_configs:
+      - targets: ["sovereign-governance-layer:8010"]
+    metrics_path: /metrics
+
+  - job_name: stratum-cyber-defense
+    static_configs:
+      - targets: ["cyber-defense-engine:8011"]
+    metrics_path: /metrics
+    scrape_interval: 5s  # High-frequency for security
+
+  - job_name: stratum-orchestration
+    static_configs:
+      - targets: ["orchestration-engine:8012"]
+    metrics_path: /metrics
+
+  - job_name: stratum-urban-evolution
+    static_configs:
+      - targets: ["urban-evolution-simulator:8013"]
+    metrics_path: /metrics
+
+  - job_name: stratum-auth
+    static_configs:
+      - targets: ["auth-service:8000"]
+    metrics_path: /metrics
+
+  - job_name: stratum-ws-gateway
+    static_configs:
+      - targets: ["websocket-gateway:9000"]
+    metrics_path: /metrics
+
+  # =========================================================================
+  # INFRASTRUCTURE
+  # =========================================================================
+  - job_name: kafka
+    static_configs:
+      - targets: ["kafka-jmx-exporter:9101"]
+
+  - job_name: neo4j
+    static_configs:
+      - targets: ["neo4j:2004"]
+    metrics_path: /metrics
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: kubernetes-pods
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ["stratum-system"]
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: "true"
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+        action: replace
+        target_label: __metrics_path__
+        regex: (.+)
