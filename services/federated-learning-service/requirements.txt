@@ -10,7 +10,7 @@ opacus==1.4.1  # PyTorch DP training
 asyncpg==0.29.0
 redis[asyncio]==5.0.1
 aiokafka==0.10.0
-cryptography==42.0.2
+cryptography==41.0.7
 prometheus-client==0.19.0
 structlog==24.1.0
 httpx==0.26.0
