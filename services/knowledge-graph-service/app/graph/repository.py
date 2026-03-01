@@ -7,11 +7,11 @@ dependency scoring, vulnerability indexing, and criticality ranking.
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
-from neo4j import AsyncGraphDatabase, AsyncDriver, AsyncSession
-from neo4j.exceptions import Neo4jError
+import logging
+
+from app.graph.connection import Neo4jConnectionPool
 
 logger = logging.getLogger(__name__)
-
 
 # Node labels per graph layer
 PHYSICAL_NODES = ["PowerPlant", "Substation", "WaterTreatment", "TransportHub", "Bridge", "Hospital", "DataCenter"]
@@ -47,46 +47,6 @@ class UrbanNode:
             "status": self.status,
             "updated_at": datetime.utcnow().isoformat(),
         }
-
-
-class Neo4jConnectionPool:
-    def __init__(self, uri: str, user: str, password: str, database: str):
-        self.uri = uri
-        self.user = user
-        self.password = password
-        self.database = database
-        self._driver: Optional[AsyncDriver] = None
-
-    async def connect(self):
-        self._driver = AsyncGraphDatabase.driver(
-            self.uri,
-            auth=(self.user, self.password),
-            max_connection_pool_size=50,
-            connection_acquisition_timeout=30,
-        )
-        await self._driver.verify_connectivity()
-        logger.info(f"✅ Connected to Neo4j at {self.uri}")
-
-    async def close(self):
-        if self._driver:
-            await self._driver.close()
-
-    async def ensure_schema(self):
-        """Create indexes and constraints if they don't exist."""
-        constraints = [
-            "CREATE CONSTRAINT IF NOT EXISTS FOR (n:UrbanNode) REQUIRE n.node_id IS UNIQUE",
-            "CREATE INDEX IF NOT EXISTS FOR (n:UrbanNode) ON (n.city_id)",
-            "CREATE INDEX IF NOT EXISTS FOR (n:UrbanNode) ON (n.layer)",
-            "CREATE INDEX IF NOT EXISTS FOR (n:UrbanNode) ON (n.criticality_score)",
-            "CREATE INDEX IF NOT EXISTS FOR (n:UrbanNode) ON (n.vulnerability_index)",
-        ]
-        async with self._driver.session(database=self.database) as session:
-            for stmt in constraints:
-                await session.run(stmt)
-        logger.info("✅ Neo4j schema constraints and indexes ensured")
-
-    async def get_session(self) -> AsyncSession:
-        return self._driver.session(database=self.database)
 
 
 class KnowledgeGraphRepository:

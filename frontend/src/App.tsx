@@ -6,6 +6,10 @@ import EngineRoom from './pages/EngineRoom';
 import AccountabilityLedger from './pages/AccountabilityLedger';
 import KnowledgeGraph from './pages/KnowledgeGraph';
 import SovereignIntelligence from './pages/SovereignIntelligence';
+import FederatedNetwork from './pages/FederatedNetwork';
+import K8sNodes from './pages/K8sNodes';
+import SecurityLogs from './pages/SecurityLogs';
+import DataIngestion from './pages/DataIngestion';
 import '../src/styles/global.css';
 
 const queryClient = new QueryClient({
@@ -23,8 +27,12 @@ function Navigation() {
             '/ledger': 'Global Ledger',
             '/knowledge-graph': 'Digital Nervous System',
             '/sovereign': 'Sovereign Intelligence',
+            '/federated': 'Federated Network',
+            '/k8s': 'K8s Nodes',
+            '/security': 'Security Logs',
+            '/ingestion': 'Data Ingestion',
         };
-        return map[location.pathname] || 'HPC Cluster';
+        return map[location.pathname] || 'Dashboard';
     };
 
     return (
@@ -50,9 +58,18 @@ function Navigation() {
                 <NavLink to="/sovereign" className={({ isActive }) => `nav-tab ${isActive ? 'active' : ''}`}>
                     Sovereign Intelligence
                 </NavLink>
-                <button className="nav-tab">Federated Network</button>
-                <button className="nav-tab">K8s Nodes</button>
-                <button className="nav-tab">Security Logs</button>
+                <NavLink to="/federated" className={({ isActive }) => `nav-tab ${isActive ? 'active' : ''}`}>
+                    Federated Network
+                </NavLink>
+                <NavLink to="/k8s" className={({ isActive }) => `nav-tab ${isActive ? 'active' : ''}`}>
+                    K8s Nodes
+                </NavLink>
+                <NavLink to="/security" className={({ isActive }) => `nav-tab ${isActive ? 'active' : ''}`}>
+                    Security Logs
+                </NavLink>
+                <NavLink to="/ingestion" className={({ isActive }) => `nav-tab ${isActive ? 'active' : ''}`}>
+                    Ingestion
+                </NavLink>
             </div>
 
             <div className="nav-right">
@@ -89,6 +106,10 @@ export default function App() {
                             <Route path="/ledger" element={<AccountabilityLedger />} />
                             <Route path="/knowledge-graph" element={<KnowledgeGraph />} />
                             <Route path="/sovereign" element={<SovereignIntelligence />} />
+                            <Route path="/federated" element={<FederatedNetwork />} />
+                            <Route path="/k8s" element={<K8sNodes />} />
+                            <Route path="/security" element={<SecurityLogs />} />
+                            <Route path="/ingestion" element={<DataIngestion />} />
                         </Routes>
                     </div>
                 </div>

@@ -1,4 +1,3 @@
-version: '3.9'
 
 # STRATUM PROTOCOL — Infrastructure Services
 # Run: docker compose -f docker-compose.infra.yml up -d

@@ -35,20 +35,26 @@ class KafkaProducerManager:
         self._failed_count = 0
 
     async def start(self):
-        self._producer = AIOKafkaProducer(
-            bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
-            enable_idempotence=True,
-            acks="all",
-            compression_type="lz4",
-            max_batch_size=1024 * 1024,  # 1MB
-            linger_ms=5,
-            value_serializer=lambda v: json.dumps(v).encode("utf-8"),
-            key_serializer=lambda k: k.encode("utf-8") if k else None,
-            max_request_size=10 * 1024 * 1024,  # 10MB
-        )
-        await self._producer.start()
-        self._flush_task = asyncio.create_task(self._periodic_flush())
-        logger.info("✅ Kafka producer started")
+        try:
+            self._producer = AIOKafkaProducer(
+                bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+                enable_idempotence=True,
+                acks="all",
+                compression_type="gzip",
+                max_batch_size=1024 * 1024,  # 1MB
+                linger_ms=5,
+                value_serializer=lambda v: json.dumps(v).encode("utf-8"),
+                key_serializer=lambda k: k.encode("utf-8") if k else None,
+                max_request_size=10 * 1024 * 1024,  # 10MB
+                request_timeout_ms=5000,
+                connections_max_idle_ms=10000,
+            )
+            await self._producer.start()
+            self._flush_task = asyncio.create_task(self._periodic_flush())
+            logger.info("✅ Kafka producer started")
+        except Exception as e:
+            logger.warning(f"⚠️  Kafka unavailable — running without producer: {e}")
+            self._producer = None
 
     async def stop(self):
         if self._flush_task:
@@ -66,6 +72,10 @@ class KafkaProducerManager:
         headers: Optional[Dict[str, str]] = None,
     ) -> bool:
         """Produce a single message with DLQ fallback on error."""
+        if self._producer is None:
+            logger.debug(f"Kafka producer unavailable — dropping message to {topic}")
+            self._failed_count += 1
+            return False
         try:
             encoded_headers = [(k, v.encode()) for k, v in (headers or {}).items()]
             await self._producer.send_and_wait(
@@ -94,6 +104,8 @@ class KafkaProducerManager:
 
     async def _send_to_dlq(self, original_topic: str, value: Dict, error: str):
         """Send failed messages to the dead-letter queue."""
+        if self._producer is None:
+            return
         try:
             dlq_payload = {
                 "original_topic": original_topic,

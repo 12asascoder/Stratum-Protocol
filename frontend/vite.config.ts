@@ -6,6 +6,7 @@ export default defineConfig({
     server: {
         port: 5173,
         proxy: {
+            '/health/ingestion': { target: 'http://localhost:8001', changeOrigin: true, rewrite: p => p.replace(/^\/health\/ingestion/, '/health') },
             '/api/ingestion': { target: 'http://localhost:8001', changeOrigin: true, rewrite: p => p.replace(/^\/api\/ingestion/, '/api/v1') },
             '/api/graph': { target: 'http://localhost:8002', changeOrigin: true, rewrite: p => p.replace(/^\/api\/graph/, '/api/v1') },
             '/api/ledger': { target: 'http://localhost:8008', changeOrigin: true, rewrite: p => p.replace(/^\/api\/ledger/, '/api/v1') },

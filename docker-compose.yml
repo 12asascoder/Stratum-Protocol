@@ -1,4 +1,3 @@
-version: '3.9'
 
 # STRATUM PROTOCOL — Application Microservices
 # Requires: docker-compose.infra.yml running first
@@ -39,6 +38,7 @@ services:
   data-ingestion-service:
     build:
       context: ./services/data-ingestion-service
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-ingestion
     restart: unless-stopped
     ports:
@@ -57,6 +57,7 @@ services:
   knowledge-graph-service:
     build:
       context: ./services/knowledge-graph-service
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-graph
     restart: unless-stopped
     ports:
@@ -74,6 +75,7 @@ services:
   state-estimation-engine:
     build:
       context: ./services/state-estimation-engine
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-state
     restart: unless-stopped
     ports:
@@ -90,6 +92,7 @@ services:
   cascade-failure-engine:
     build:
       context: ./services/cascade-failure-engine
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-cascade
     restart: unless-stopped
     ports:
@@ -113,6 +116,7 @@ services:
   citizen-behavior-engine:
     build:
       context: ./services/citizen-behavior-engine
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-citizen
     restart: unless-stopped
     ports:
@@ -129,6 +133,7 @@ services:
   policy-simulation-engine:
     build:
       context: ./services/policy-simulation-engine
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-policy
     restart: unless-stopped
     ports:
@@ -145,6 +150,7 @@ services:
   capital-optimization-engine:
     build:
       context: ./services/capital-optimization-engine
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-capital
     restart: unless-stopped
     ports:
@@ -161,6 +167,7 @@ services:
   decision-ledger-service:
     build:
       context: ./services/decision-ledger-service
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-ledger
     restart: unless-stopped
     ports:
@@ -177,6 +184,7 @@ services:
   federated-learning-service:
     build:
       context: ./services/federated-learning-service
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-federated
     restart: unless-stopped
     ports:
@@ -194,6 +202,7 @@ services:
   sovereign-governance-layer:
     build:
       context: ./services/sovereign-governance-layer
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-governance
     restart: unless-stopped
     ports:
@@ -210,6 +219,7 @@ services:
   cyber-defense-engine:
     build:
       context: ./services/cyber-defense-engine
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-cyber
     restart: unless-stopped
     ports:
@@ -226,6 +236,7 @@ services:
   orchestration-engine:
     build:
       context: ./services/orchestration-engine
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-orchestration
     restart: unless-stopped
     ports:
@@ -242,6 +253,7 @@ services:
   urban-evolution-simulator:
     build:
       context: ./services/urban-evolution-simulator
+      dockerfile: ../../infra/docker/Dockerfile.python-service
     container_name: stratum-evolution
     restart: unless-stopped
     ports:
@@ -258,6 +270,7 @@ services:
   websocket-gateway:
     build:
       context: ./services/websocket-gateway
+      dockerfile: ../../infra/docker/Dockerfile.websocket-gateway
     container_name: stratum-ws
     restart: unless-stopped
     ports:
@@ -274,6 +287,7 @@ services:
   frontend:
     build:
       context: ./frontend
+      dockerfile: ../infra/docker/Dockerfile.frontend
       args:
         VITE_MAPBOX_ACCESS_TOKEN: ${VITE_MAPBOX_ACCESS_TOKEN}
     container_name: stratum-frontend

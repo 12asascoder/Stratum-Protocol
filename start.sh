@@ -19,6 +19,20 @@ success() { echo -e "${GREEN}${BOLD}[  OK   ]${RESET} $*"; }
 warn()    { echo -e "${YELLOW}${BOLD}[ WARN  ]${RESET} $*"; }
 error()   { echo -e "${RED}${BOLD}[ ERROR ]${RESET} $*"; exit 1; }
 
+infra_summary() {
+  echo -e "  ${BOLD}Infrastructure${RESET}"
+  echo -e "    Kafka                  →  localhost:9092"
+  echo -e "    PostgreSQL             →  localhost:5432"
+  echo -e "    TimescaleDB            →  localhost:5433"
+  echo -e "    Neo4j Browser          →  http://localhost:7474"
+  echo -e "    Redis                  →  localhost:6379"
+  echo -e "    MinIO Console          →  http://localhost:9001"
+  echo -e "    Vault                  →  http://localhost:8200"
+  echo -e "    Prometheus             →  http://localhost:9090"
+  echo -e "    Grafana                →  http://localhost:3000"
+  echo -e "    Kibana                 →  http://localhost:5601"
+}
+
 # ─── Root guard ─────────────────────────────────────────────────────────────
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -43,10 +57,11 @@ done
 # ─── Pre-flight checks ───────────────────────────────────────────────────────
 info "Running pre-flight checks..."
 
-command -v docker  &>/dev/null || error "Docker not found. Install Docker Desktop and try again."
-docker info        &>/dev/null || error "Docker daemon is not running. Start Docker Desktop first."
-command -v node    &>/dev/null || error "Node.js not found. Install Node.js (>=18) to run the frontend."
-command -v npm     &>/dev/null || error "npm not found. Install Node.js (>=18) to run the frontend."
+command -v docker   &>/dev/null || error "Docker not found. Install Docker Desktop and try again."
+docker info         &>/dev/null || error "Docker daemon is not running. Start Docker Desktop first."
+command -v node     &>/dev/null || error "Node.js not found. Install Node.js (>=18) to run the frontend."
+command -v npm      &>/dev/null || error "npm not found. Install Node.js (>=18) to run the frontend."
+command -v python3  &>/dev/null || warn  "python3 not found — local service dev outside Docker may not work."
 
 success "Pre-flight checks passed."
 
@@ -88,7 +103,9 @@ fi
 # ─── 2. Application microservices ────────────────────────────────────────────
 if [ "$FRONTEND_ONLY" = false ]; then
   info "Building and starting application microservices..."
-  docker compose up -d --build
+  # --scale frontend=0 skips the production nginx container in dev mode;
+  # the Vite dev server below handles the frontend instead.
+  docker compose up -d --build --scale frontend=0
 
   success "All microservices started."
 fi
@@ -102,8 +119,13 @@ if [ ! -d "$FRONTEND_DIR/node_modules" ]; then
 fi
 
 info "Starting Vite dev server in background..."
-npm run dev --prefix "$FRONTEND_DIR" &
+# Use a dedicated process group so that both npm and its vite child
+# are killed together on Ctrl-C (avoids orphan vite process on :5173).
+set -m
+npm --prefix "$FRONTEND_DIR" run dev &
 FRONTEND_PID=$!
+FRONTEND_PGID=$(ps -o pgid= -p "$FRONTEND_PID" 2>/dev/null | tr -d ' ' || echo "$FRONTEND_PID")
+set +m
 
 # Give Vite a moment to print its URL
 sleep 3
@@ -111,10 +133,11 @@ sleep 3
 # ─── Cleanup on Ctrl-C ───────────────────────────────────────────────────────
 cleanup() {
   echo ""
-  warn "Shutting down frontend dev server (PID $FRONTEND_PID)..."
-  kill "$FRONTEND_PID" 2>/dev/null || true
+  warn "Shutting down frontend dev server (PGID $FRONTEND_PGID)..."
+  # Kill the entire process group to take vite down with npm
+  kill -- "-${FRONTEND_PGID}" 2>/dev/null || kill "$FRONTEND_PID" 2>/dev/null || true
   warn "Microservices and infrastructure are still running."
-  warn "To stop them run:  docker compose down && docker compose -f docker-compose.infra.yml down"
+  warn "To stop them run:  make dev-down && make infra-down"
 }
 trap cleanup INT TERM
 
@@ -156,7 +179,7 @@ echo -e "    Grafana                →  http://localhost:3000"
 echo -e "    Kibana                 →  http://localhost:5601"
 echo ""
 echo -e "  ${YELLOW}Press Ctrl-C to stop the frontend dev server.${RESET}"
-echo -e "  ${YELLOW}Services/infra continue running until you run: make dev-down${RESET}"
+echo -e "  ${YELLOW}Services/infra continue running until you run: make dev-down && make infra-down${RESET}"
 echo ""
 
 # Keep script alive so Ctrl-C works cleanly

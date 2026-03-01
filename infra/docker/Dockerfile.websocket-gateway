@@ -1,0 +1,29 @@
+# ============================================================
+# STRATUM PROTOCOL — WebSocket Gateway Dockerfile (Node.js)
+# ============================================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Copy source
+COPY . .
+
+# Initialize package.json if missing and install dependencies
+# Based on src/index.ts imports
+RUN if [ ! -f package.json ]; then \
+    npm init -y && \
+    npm install express socket.io jsonwebtoken kafkajs winston dotenv && \
+    npm install -D typescript ts-node @types/express @types/jsonwebtoken @types/node; \
+    fi
+
+# Build if package.json has a build script, otherwise we use ts-node
+RUN if grep -q '"build":' package.json 2>/dev/null; then \
+    npm run build; \
+    else \
+    echo "No build script found, will run with ts-node"; \
+    fi
+
+EXPOSE 9000
+
+# Run with ts-node for now given the missing build setup
+CMD ["npx", "ts-node", "src/index.ts"]
