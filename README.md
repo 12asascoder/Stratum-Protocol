@@ -47,14 +47,14 @@ STRATUM PROTOCOL is a **clean architecture + domain-driven design** monorepo con
 
 ### Prerequisites
 
-| Tool       | Version  |
-|------------|----------|
-| Docker     | ≥ 24.0   |
-| Docker Compose | ≥ 2.20 |
-| Node.js    | ≥ 20.x   |
-| Python     | ≥ 3.11   |
-| kubectl    | ≥ 1.28   |
-| Helm       | ≥ 3.12   |
+| Tool           | Version          |
+|----------------|------------------|
+| Docker         | ≥ 24.0           |
+| Docker Compose | ≥ 2.20           |
+| Node.js        | ≥ 20.x           |
+| Python         | 3.11 – 3.13 ✅ (3.14 not yet supported by all packages) |
+| kubectl        | ≥ 1.28           |
+| Helm           | ≥ 3.12           |
 
 ### Development (Full Stack via Docker Compose)
 
@@ -63,8 +63,8 @@ STRATUM PROTOCOL is a **clean architecture + domain-driven design** monorepo con
 cp .env.example .env
 # Edit .env with your API keys (Mapbox, etc.)
 
-# 2. Start infrastructure services
-make infra-up
+# 2. Start infrastructure services (Kafka, Neo4j, Redis, PostgreSQL, etc.)
+docker compose -f docker-compose.infra.yml up -d
 
 # 3. Start all microservices
 make dev
@@ -78,10 +78,18 @@ cd frontend && npm install && npm run dev
 
 ```bash
 # Start a specific service locally
+# Python 3.14 is NOT supported (grpcio/pydantic-core require ≤ 3.13)
+# Use the bundled Python 3.11 virtual environment instead:
 cd services/knowledge-graph-service
+python3.11 -m venv .venv          # create venv (one-time)
+source .venv/bin/activate         # activate it
+pip install --upgrade pip
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8002
 ```
+
+> **Note:** Your system Python 3.14 will **not** work—`grpcio` and `pydantic-core`
+> have no 3.14 wheels yet. Always activate `.venv` (Python 3.11) before running any service.
 
 ---
 
@@ -151,7 +159,7 @@ STRATUM PROTOCOL/
 
 | Category        | Technologies                                          |
 |-----------------|-------------------------------------------------------|
-| Backend         | Python 3.11, FastAPI, Pydantic v2, gRPC               |
+| Backend         | Python 3.11–3.13, FastAPI, Pydantic v2, gRPC          |
 | AI/ML           | PyTorch (ROCm), PyTorch Geometric, Ray RLlib, ONNX   |
 | Federated       | Flower (flwr), Differential Privacy                   |
 | Graph           | Neo4j Enterprise, PyNeo4j                             |
